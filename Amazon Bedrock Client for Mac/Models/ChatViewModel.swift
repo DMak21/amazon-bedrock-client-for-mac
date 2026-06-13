@@ -368,6 +368,12 @@ class ChatViewModel: ObservableObject {
         messageTask?.cancel()
         chatManager.setIsLoading(false, for: chatId)
     }
+
+    func revertToMessage(at index: Int) {
+        guard index >= 0, index < messages.count else { return }
+        messages = Array(messages.prefix(index + 1))
+        Task { await saveFromUIMessages() }
+    }
     
     func showToolResultDetails(_ toolResult: ToolResultInfo) {
         selectedToolResult = toolResult

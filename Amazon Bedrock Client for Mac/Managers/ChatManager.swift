@@ -506,8 +506,47 @@ class ChatManager: ObservableObject {
         }
     }
     
+    private var hiddenChats: [String: ChatModel] = [:]
+
+    func createHiddenChat(modelId: String, modelName: String, modelProvider: String) -> ChatModel {
+        let chatModel = ChatModel(
+            id: modelId,
+            chatId: UUID().uuidString,
+            name: modelName,
+            title: "New Chat",
+            description: modelId,
+            provider: modelProvider,
+            lastMessageDate: Date()
+        )
+        hiddenChats[chatModel.chatId] = chatModel
+        chatIsLoading[chatModel.chatId] = false
+        let history = ConversationHistory(chatId: chatModel.chatId, modelId: modelId)
+        saveConversationHistory(history, for: chatModel.chatId)
+        return chatModel
+    }
+
+    func restoreHiddenChat(chatId: String, modelId: String, modelName: String, modelProvider: String) -> ChatModel {
+        let chatModel = ChatModel(
+            id: modelId,
+            chatId: chatId,
+            name: modelName,
+            title: "New Chat",
+            description: modelId,
+            provider: modelProvider,
+            lastMessageDate: Date()
+        )
+        hiddenChats[chatId] = chatModel
+        chatIsLoading[chatId] = false
+        return chatModel
+    }
+
+    func deleteHiddenChat(chatId: String) {
+        hiddenChats.removeValue(forKey: chatId)
+        chatIsLoading.removeValue(forKey: chatId)
+    }
+
     func getChatModel(for chatId: String) -> ChatModel? {
-        return chats.first { $0.chatId == chatId }
+        return chats.first { $0.chatId == chatId } ?? hiddenChats[chatId]
     }
     
     func getIsLoading(for chatId: String) -> Bool {

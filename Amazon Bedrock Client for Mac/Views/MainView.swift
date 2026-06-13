@@ -16,26 +16,40 @@ struct MainView: View {
     @State private var selection: SidebarSelection? = nil
     @State private var menuSelection: SidebarSelection? = nil
     @State private var organizedChatModels: [String: [ChatModel]] = [:]
+    @State private var comparisons: [ComparisonEntry] = []
+    @State private var comparisonViewModels: [String: ComparisonViewModel] = [:]
     @State private var isHovering = false
     @State private var alertInfo: AlertInfo?
     @State private var hasInitialized = false
-    @State private var isCreatingInitialChat = false // Flag to prevent duplicate creation
+    @State private var isCreatingInitialChat = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @SwiftUI.Environment(\.colorScheme) private var colorScheme: ColorScheme
     private var logger = Logger(label: "MainView")
-    
+
     @StateObject var backendModel: BackendModel = BackendModel()
     @StateObject var chatManager: ChatManager = ChatManager.shared
     @ObservedObject var settingManager: SettingManager = SettingManager.shared
-    
+
     var body: some View {
-        NavigationView {
-            SidebarView(selection: $selection, menuSelection: $menuSelection)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            SidebarView(
+                selection: $selection,
+                menuSelection: $menuSelection,
+                organizedChatModels: $organizedChatModels,
+                comparisons: $comparisons,
+                comparisonViewModels: comparisonViewModels,
+                onNewChat: createNewChat,
+                onNewComparison: createNewComparison,
+                onDeleteComparison: deleteComparison
+            )
+        } detail: {
             contentView()
                 .toolbar {
                     toolbarContent()
                 }
                 .navigationTitle("")
         }
+        .navigationSplitViewStyle(.balanced)
         .alert(item: $alertInfo) { info in
             Alert(
                 title: Text(info.title),
@@ -50,8 +64,11 @@ struct MainView: View {
         .onChange(of: backendModel.backend) { _, _ in
             fetchModels()
         }
-        .onChange(of: selection) { _, newValue in
-            // If the selected chat doesn't exist, create a new one
+        .onChange(of: selection) { oldValue, newValue in
+            // Save comparison state when navigating away from one
+            if case .comparison = oldValue {
+                saveComparisons()
+            }
             if case .chat(let chat) = newValue {
                 if !chatManager.chats.contains(where: { $0.chatId == chat.chatId }) {
                     createNewChatIfNeeded()
@@ -60,29 +77,22 @@ struct MainView: View {
             }
         }
         .onChange(of: organizedChatModels) { oldValue, newValue in
-            // Only auto-create chat if:
-            // 1. We just loaded models for the first time (oldValue empty, newValue not empty)
-            // 2. User has NO existing chats (first time user)
-            // 3. Not already creating a chat
             let isFirstLoad = oldValue.isEmpty && !newValue.isEmpty
             if selection == nil && !isCreatingInitialChat && chatManager.chats.isEmpty && isFirstLoad {
                 createNewChatIfNeeded()
             }
         }
         .onAppear {
-            // Mark as initialized on appear to prevent infinite loading
             if !hasInitialized {
                 hasInitialized = true
             }
         }
         .onChange(of: backendModel.alertMessage) { _, newMessage in
-            // Show credential/backend error alerts
             if let message = newMessage {
                 alertInfo = AlertInfo(
                     title: "AWS Credential Error",
                     message: message
                 )
-                // Clear the alert message after showing
                 backendModel.alertMessage = nil
             }
         }
@@ -94,7 +104,6 @@ struct MainView: View {
         if let currentSelection = selection {
             switch currentSelection {
             case .newChat:
-                // This case shouldn't happen anymore, but fallback to creating new chat
                 Color.clear
                     .onAppear {
                         createNewChatIfNeeded()
@@ -103,41 +112,128 @@ struct MainView: View {
                 ChatView(chatId: selectedChat.chatId, backendModel: backendModel)
                     .background(Color.background)
                     .id(selectedChat.chatId)
+            case .comparison(let comparisonId):
+                if let vm = comparisonViewModels[comparisonId] {
+                    ComparisonChatView(
+                        viewModel: vm,
+                        organizedChatModels: organizedChatModels,
+                        onStateChanged: saveComparisons
+                    )
+                    .background(Color.background)
+                    .id(comparisonId)
+                } else {
+                    Color.clear
+                }
             }
         } else {
-            // Show loading or placeholder while initializing
             welcomePlaceholderView
         }
     }
     
-    // MARK: - Welcome Placeholder View (shown while loading models)
+    // MARK: - Welcome Placeholder View
     private var welcomePlaceholderView: some View {
-        VStack {
+        VStack(spacing: DS.Spacing.xl) {
             Spacer()
-            
-            if hasInitialized && !organizedChatModels.isEmpty {
-                // Show nothing when ready - user can use sidebar to create new chat
-                EmptyView()
-            } else if hasInitialized && organizedChatModels.isEmpty {
-                // Models loaded but no chats exist
-                EmptyView()
-            } else {
-                // Still loading models - show progress indicator
+
+            if !hasInitialized {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle())
                     .scaleEffect(0.5)
+            } else {
+                Image(systemName: "bubble.left.and.text.bubble.right")
+                    .font(.system(size: 48, weight: .light))
+                    .foregroundStyle(Color.tertiaryText.opacity(0.6))
+
+                VStack(spacing: DS.Spacing.sm) {
+                    Text("Start a conversation")
+                        .font(.title2.weight(.medium))
+                        .foregroundStyle(Color.text)
+
+                    Text("Select a chat or press ⌘N to begin")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.secondaryText)
+                }
+
+                VStack(spacing: DS.Spacing.sm) {
+                    suggestionCard("Explain this code to me")
+                    suggestionCard("Help me write a function that...")
+                    suggestionCard("Summarize this document")
+                }
+                .frame(maxWidth: 340)
+                .padding(.top, DS.Spacing.md)
             }
-            
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(Color.surface0)
+    }
+
+    private func suggestionCard(_ text: String) -> some View {
+        Button(action: {
+            createNewChatWithSuggestion(text)
+        }) {
+            HStack {
+                Text(text)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.text)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.accent)
+            }
+            .padding(.horizontal, DS.Spacing.lg)
+            .padding(.vertical, DS.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.md)
+                    .fill(Color.surface1)
+                    .stroke(Color.border.opacity(0.5), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func createNewChatWithSuggestion(_ suggestion: String) {
+        guard case let .chat(selectedModel) = menuSelection else { return }
+        chatManager.createNewChat(
+            modelId: selectedModel.id,
+            modelName: selectedModel.name,
+            modelProvider: selectedModel.provider
+        ) { newChat in
+            newChat.lastMessageDate = Date()
+            DispatchQueue.main.async {
+                self.selection = .chat(newChat)
+            }
+        }
     }
     
     // MARK: - Lifecycle
-    
+
     private func setup() {
         fetchModels()
+        restoreComparisons()
+    }
+
+    private func restoreComparisons() {
+        let persisted = ComparisonStore.shared.load()
+        for item in persisted {
+            let vm = ComparisonViewModel(comparisonId: item.id, backendModel: backendModel)
+            vm.hasInitialPrompt = item.hasInitialPrompt
+            for pane in item.panes {
+                vm.restorePane(
+                    chatId: pane.chatId,
+                    modelId: pane.modelId,
+                    modelName: pane.modelName,
+                    modelProvider: pane.modelProvider
+                )
+            }
+            comparisonViewModels[item.id] = vm
+            comparisons.append(ComparisonEntry(id: item.id, title: vm.modelNames, createdAt: item.createdAt))
+        }
+    }
+
+    private func saveComparisons() {
+        ComparisonStore.shared.save(comparisons: comparisons, viewModels: comparisonViewModels)
     }
     
     private func fetchModels() {
@@ -257,21 +353,10 @@ struct MainView: View {
     }
     
     // MARK: - Toolbar
-    
+
     @ToolbarContentBuilder
     private func toolbarContent() -> some ToolbarContent {
-        // Left side - New Chat button
-        ToolbarItem(placement: .navigation) {
-            Button(action: createNewChat) {
-                Image(systemName: "square.and.pencil")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.primary)
-            }
-            .buttonStyle(LiquidGlassToolbarButtonStyle())
-            .help("New Chat")
-        }
-        
-        // Left side - Model selector (right after pencil button)
+        // Center - Model selector
         ToolbarItem(placement: .principal) {
             ModelSelectorDropdown(
                 organizedChatModels: organizedChatModels,
@@ -279,20 +364,17 @@ struct MainView: View {
                 handleSelectionChange: handleMenuSelectionChange
             )
             .fixedSize(horizontal: true, vertical: false)
-            .frame(minWidth: 200, maxWidth: 420)
+            .frame(minWidth: 180, maxWidth: 360)
         }
 
-        // Right side - Inference config dropdown (or image/video model config)
+        // Right side - Config dropdown (contextual)
         ToolbarItem(placement: .primaryAction) {
             if case .chat(let selectedModel) = menuSelection {
                 if selectedModel.id.contains("nova-reel") {
-                    // Show Nova Reel video generation config
                     NovaReelConfigDropdown()
                 } else if selectedModel.id.contains("nova-canvas") {
-                    // Show Nova Canvas specific config for image generation
                     NovaCanvasConfigDropdown()
                 } else if selectedModel.id.contains("titan-image") {
-                    // Show Titan Image Generator config
                     TitanImageConfigDropdown()
                 } else if selectedModel.id.contains("us.stability.stable-image") ||
                             selectedModel.id.contains("us.stability.stable-style") ||
@@ -300,13 +382,10 @@ struct MainView: View {
                             selectedModel.id.contains("us.stability.stable-conservative") ||
                             selectedModel.id.contains("us.stability.stable-fast") ||
                             selectedModel.id.contains("us.stability.stable-outpaint") {
-                    // Show Stability AI Image Services config (service determined by model ID)
                     StabilityAIServicesDropdown(modelId: selectedModel.id)
                 } else if selectedModel.id.contains("stability") || selectedModel.id.contains("sd3") {
-                    // Show Stability AI config for SD3/Ultra/Core
                     StabilityAIConfigDropdown(modelId: selectedModel.id)
                 } else {
-                    // Show standard inference config for text models
                     InferenceConfigDropdown(
                         currentModelId: .constant(selectedModel.id),
                         backend: backendModel.backend
@@ -316,14 +395,14 @@ struct MainView: View {
                 Color.clear.frame(width: 0, height: 0)
             }
         }
-        
+
         // Right side - Delete button
         ToolbarItem(placement: .primaryAction) {
             if case .chat(let chat) = selection,
                chatManager.chats.contains(where: { $0.chatId == chat.chatId }) {
                 Button(action: deleteCurrentChat) {
                     Image(systemName: "trash")
-                        .font(.system(size: 16))
+                        .font(.system(size: 14))
                         .symbolRenderingMode(.hierarchical)
                 }
                 .buttonStyle(LiquidGlassToolbarButtonStyle())
@@ -332,7 +411,7 @@ struct MainView: View {
                 Color.clear.frame(width: 0, height: 0)
             }
         }
-        
+
         // Right side - Settings button
         ToolbarItem(placement: .primaryAction) {
             Button(action: {
@@ -340,7 +419,7 @@ struct MainView: View {
                 SettingsWindowManager.shared.openSettings(view: settingsView)
             }) {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 16))
+                    .font(.system(size: 14))
                     .symbolRenderingMode(.hierarchical)
             }
             .buttonStyle(LiquidGlassToolbarButtonStyle())
@@ -352,7 +431,7 @@ struct MainView: View {
     
     private func createNewChat() {
         guard case let .chat(selectedModel) = menuSelection else { return }
-        
+
         chatManager.createNewChat(
             modelId: selectedModel.id,
             modelName: selectedModel.name,
@@ -363,6 +442,26 @@ struct MainView: View {
                 self.selection = .chat(newChat)
             }
         }
+    }
+
+    private func deleteComparison(_ id: String) {
+        if let vm = comparisonViewModels[id] {
+            for i in (0..<vm.panes.count).reversed() {
+                vm.removePane(at: i)
+            }
+        }
+        comparisonViewModels.removeValue(forKey: id)
+        saveComparisons()
+    }
+
+    private func createNewComparison() {
+        let comparisonId = UUID().uuidString
+        let entry = ComparisonEntry(id: comparisonId, title: "New Comparison", createdAt: Date())
+        comparisons.insert(entry, at: 0)
+        let vm = ComparisonViewModel(comparisonId: comparisonId, backendModel: backendModel)
+        comparisonViewModels[comparisonId] = vm
+        selection = .comparison(comparisonId)
+        saveComparisons()
     }
         
     func currentSelectedModelName() -> String {

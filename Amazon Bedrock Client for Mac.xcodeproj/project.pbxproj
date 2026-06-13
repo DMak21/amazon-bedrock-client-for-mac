@@ -33,6 +33,11 @@
 		797A12BC2C2EB4C300494DD9 /* CoreDataStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797A12BB2C2EB4C300494DD9 /* CoreDataStack.swift */; };
 		797A12BF2C2EB53800494DD9 /* ChatModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 797A12BD2C2EB53800494DD9 /* ChatModel.xcdatamodeld */; };
 		797A12C12C2EB9E200494DD9 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797A12C02C2EB9E200494DD9 /* ChatViewModel.swift */; };
+		8CF106D85029CAA3913E94D0 /* ComparisonViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F9050C404C2E539E517C8E /* ComparisonViewModel.swift */; };
+		7F66D0022CB62322676A178E /* ComparisonChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52E1DD6F6A8D3FF02E9FCF7 /* ComparisonChatView.swift */; };
+		91EEEC9A8AC5C6758DE29C60 /* ModelRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6FD9E32D553DF8FF314D8C9 /* ModelRegistry.swift */; };
+		6830F14F57B574F89A208EFF /* ModelRegistrySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45DB91E75C2FE37A7AC5659 /* ModelRegistrySettingsView.swift */; };
+		A9A1C3CE9F415D4E53A934C0 /* BuiltInModels.json in Resources */ = {isa = PBXBuildFile; fileRef = EE344B57A9A7ED37FC795E6C /* BuiltInModels.json */; };
 		798A9CE62AD3AB2E00E9D039 /* Vapor in Frameworks */ = {isa = PBXBuildFile; productRef = 798A9CE52AD3AB2E00E9D039 /* Vapor */; };
 		79A305692EB05A2200DAE32F /* MarkdownKit in Frameworks */ = {isa = PBXBuildFile; productRef = 79A305682EB05A2200DAE32F /* MarkdownKit */; };
 		79AC78982C31691800BD6FB1 /* AWSSSO in Frameworks */ = {isa = PBXBuildFile; productRef = 79AC78972C31691800BD6FB1 /* AWSSSO */; };
@@ -128,6 +133,11 @@
 		797A12BB2C2EB4C300494DD9 /* CoreDataStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataStack.swift; sourceTree = "<group>"; };
 		797A12BE2C2EB53800494DD9 /* ChatModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = ChatModel.xcdatamodel; sourceTree = "<group>"; };
 		797A12C02C2EB9E200494DD9 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		29F9050C404C2E539E517C8E /* ComparisonViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonViewModel.swift; sourceTree = "<group>"; };
+		A52E1DD6F6A8D3FF02E9FCF7 /* ComparisonChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonChatView.swift; sourceTree = "<group>"; };
+		B6FD9E32D553DF8FF314D8C9 /* ModelRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRegistry.swift; sourceTree = "<group>"; };
+		E45DB91E75C2FE37A7AC5659 /* ModelRegistrySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRegistrySettingsView.swift; sourceTree = "<group>"; };
+		EE344B57A9A7ED37FC795E6C /* BuiltInModels.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/BuiltInModels.json; sourceTree = "<group>"; };
 		79AF97542D9E332500313A4C /* NSImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSImage.swift; sourceTree = "<group>"; };
 		79AF97562D9E33BE00313A4C /* ImagePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreview.swift; sourceTree = "<group>"; };
 		79B37BFA2DA06BB1006A7A62 /* DocumentPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPreview.swift; sourceTree = "<group>"; };
@@ -229,6 +239,7 @@
 				79F2C4012EB0705A003F46E6 /* Bedrock.icon */,
 				79E0AC5E2D63F49F0041829A /* Amazon Bedrock Client for Mac.entitlements */,
 				79610DC22AD22A2F00993D09 /* Assets.xcassets */,
+				EE344B57A9A7ED37FC795E6C /* BuiltInModels.json */,
 				79610DBB2AD22A2F00993D09 /* Core */,
 				79610DBF2AD22A2F00993D09 /* Managers */,
 				79610DC92AD22A2F00993D09 /* Models */,
@@ -268,6 +279,7 @@
 				79FF2B322D925ED10075249D /* MCPManager.swift */,
 				79FF2B362D925F300075249D /* MCPOAuthManager.swift */,
 				793FE0B72DE56292004236B9 /* ModelInferenceConfig.swift */,
+				B6FD9E32D553DF8FF314D8C9 /* ModelRegistry.swift */,
 				79F53C862E7B08BB00F129F4 /* QuickAccessWindowManager.swift */,
 				7954F8462AD249A7008B03D3 /* SettingManager.swift */,
 				797A12B72C2DB33100494DD9 /* SettingsWindowManager.swift */,
@@ -302,6 +314,7 @@
 				7954F8422AD247CC008B03D3 /* AWSRegion.swift */,
 				79610DCA2AD22A2F00993D09 /* ChatModel.swift */,
 				797A12C02C2EB9E200494DD9 /* ChatViewModel.swift */,
+				29F9050C404C2E539E517C8E /* ComparisonViewModel.swift */,
 				79FF2B342D925F280075249D /* MCPModels.swift */,
 				79610DCB2AD22A2F00993D09 /* MessageData.swift */,
 			);
@@ -326,6 +339,7 @@
 				79EC4F2B2EE1998A00BF73D9 /* TitanImageConfigDropdown.swift */,
 				79EC4F242EE17E7400BF73D9 /* NovaCanvasConfigDropdown.swift */,
 				79610DEC2AD230A200993D09 /* ChatView.swift */,
+				A52E1DD6F6A8D3FF02E9FCF7 /* ComparisonChatView.swift */,
 				79B37BFA2DA06BB1006A7A62 /* DocumentPreview.swift */,
 				79F53C8A2E7B0DBA00F129F4 /* HotkeyRecorderView.swift */,
 				79AF97562D9E33BE00313A4C /* ImagePreview.swift */,
@@ -334,6 +348,7 @@
 				79610DD02AD22A2F00993D09 /* MessageBarView.swift */,
 				79610DD62AD22A2F00993D09 /* MessageView.swift */,
 				79FDE2582DFBF410003960BC /* ModelSelectorDropdown.swift */,
+				E45DB91E75C2FE37A7AC5659 /* ModelRegistrySettingsView.swift */,
 				79F53C882E7B0B3800F129F4 /* QuickAccessView.swift */,
 				7954F8442AD247DF008B03D3 /* SettingsView.swift */,
 				79610DD32AD22A2F00993D09 /* SidebarView.swift */,
@@ -471,6 +486,7 @@
 			files = (
 				79BF645F2ACFF8FD00383300 /* README.md in Resources */,
 				79F2C4022EB0705A003F46E6 /* Bedrock.icon in Resources */,
+				A9A1C3CE9F415D4E53A934C0 /* BuiltInModels.json in Resources */,
 				79610DE42AD22A2F00993D09 /* Preview Assets.xcassets in Resources */,
 				79610DDB2AD22A2F00993D09 /* Assets.xcassets in Resources */,
 			);
@@ -552,6 +568,10 @@
 				79BFF5102AD342710057BF3A /* ChatManager.swift in Sources */,
 				79F53C852E7B08AF00F129F4 /* HotkeyManager.swift in Sources */,
 				797A12C12C2EB9E200494DD9 /* ChatViewModel.swift in Sources */,
+				8CF106D85029CAA3913E94D0 /* ComparisonViewModel.swift in Sources */,
+				7F66D0022CB62322676A178E /* ComparisonChatView.swift in Sources */,
+				91EEEC9A8AC5C6758DE29C60 /* ModelRegistry.swift in Sources */,
+				6830F14F57B574F89A208EFF /* ModelRegistrySettingsView.swift in Sources */,
 				797A12BF2C2EB53800494DD9 /* ChatModel.xcdatamodeld in Sources */,
 				79EC4F312EE1F1A300BF73D9 /* StabilityAIServicesDropdown.swift in Sources */,
 				79EC4F1D2EE1601300BF73D9 /* NovaCanvasModels.swift in Sources */,

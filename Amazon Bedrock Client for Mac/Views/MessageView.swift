@@ -428,31 +428,35 @@ struct ExpandableMarkdownItem: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // Toggle button with summary
             Button(action: {
-                isExpanded.toggle()
+                withAnimation(.expand) {
+                    isExpanded.toggle()
+                }
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    Image(systemName: "brain")
                         .font(.system(size: fontSize - 4))
-                        .foregroundColor(.secondary)
-                    
-                    // Show animated dots only when streaming without summary
+                        .foregroundStyle(Color.aiGlow.opacity(0.7))
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: fontSize - 5, weight: .medium))
+                        .foregroundStyle(Color.tertiaryText)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+
                     if isStreaming && summary == nil {
                         ThinkingDotsView(fontSize: fontSize)
                     } else {
                         Text(displayHeader)
                             .font(.system(size: fontSize - 1, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(Color.secondaryText)
                             .lineLimit(1)
                     }
-                    
+
                     Spacer()
                 }
             }
             .buttonStyle(.borderless)
-            
-            // Expandable content
+
             if isExpanded {
                 LazyMarkdownView(
                     text: text,
@@ -460,25 +464,17 @@ struct ExpandableMarkdownItem: View {
                     searchRanges: searchRanges
                 )
                 .padding(.leading, fontSize / 2)
+                .padding(.top, 4)
             }
         }
-        .padding(10)
+        .padding(DS.Spacing.md)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(
-                    colorScheme == .dark ?
-                    Color.white.opacity(0.05) :
-                        Color.black.opacity(0.03)
-                )
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .fill(Color.surface1)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(
-                    colorScheme == .dark ?
-                    Color.white.opacity(0.1) :
-                        Color.black.opacity(0.06),
-                    lineWidth: 0.5
-                )
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(Color.border.opacity(0.3), lineWidth: 0.5)
         )
     }
 }
@@ -501,43 +497,34 @@ private struct ThinkingDotsView: View {
 // MARK: - MessageView
 struct MessageView: View {
     let message: MessageData
-    let searchResult: SearchMatch?  // Enhanced search result
-    var adjustedFontSize: CGFloat = -1 // One size smaller
-    
+    let searchResult: SearchMatch?
+    var adjustedFontSize: CGFloat = -1
+    var modelId: String = ""
+    var onRevert: (() -> Void)?
+
     @StateObject var viewModel = MessageViewModel()
     @Environment(\.fontSize) private var fontSize: CGFloat
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @State private var isHovering = false
     @State private var currentHighlightIndex = 0
     @State private var scrollToMatchNotification: AnyCancellable?
-    
+
     private let imageSize: CGFloat = 100
-    
+
     var body: some View {
         Group {
-            // Hide "ToolResult" messages - they are only for API history
-            // Tool results are displayed in the assistant message's toolResult field
             if message.user == "ToolResult" {
                 EmptyView()
+            } else if message.user == "User" {
+                userMessageRow
             } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        if message.user == "User" {
-                            Spacer()
-                            userMessageBubble
-                                .padding(.horizontal)
-                        } else {
-                            assistantMessageBubble
-                                .padding(.horizontal)
-                            Spacer()
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                .onHover { hovering in
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isHovering = hovering
-                    }
+                assistantMessageRow
+            }
+        }
+        .contextMenu {
+            if let onRevert = onRevert {
+                Button(action: onRevert) {
+                    Label("Revert to here", systemImage: "arrow.uturn.backward")
                 }
             }
         }
@@ -549,55 +536,96 @@ struct MessageView: View {
         }
         .textSelection(.enabled)
     }
-    
-    // MARK: - Assistant Message Bubble
-    private var assistantMessageBubble: some View {
-        ZStack(alignment: .bottomTrailing) {
-            // Main content
-            VStack(alignment: .leading, spacing: 4) {
-                // Message header with user name and timestamp
-                messageHeader
-                    .padding(.bottom, 2)
-                
-                // Message content with images and markdown
+
+    // MARK: - Assistant Message (Full-width, no bubble)
+    private var assistantMessageRow: some View {
+        HStack(alignment: .top, spacing: DS.Spacing.md) {
+            // Model avatar with streaming glow
+            ModelImageHelper.getImage(for: modelId)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.border.opacity(0.3), lineWidth: 0.5)
+                )
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                // Header: model name + timestamp
+                HStack(spacing: 6) {
+                    Text(message.user)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.text)
+                    Text(format(date: message.sentTime))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.tertiaryText)
+                }
+
+                // Content
                 assistantMessageContent
             }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(colorScheme == .dark ?
-                          Color(NSColor.controlBackgroundColor).opacity(0.5) :
-                            Color(NSColor.controlBackgroundColor).opacity(0.7))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        colorScheme == .dark ?
-                        Color.white.opacity(0.08) :
-                            Color.black.opacity(0.06),
-                        lineWidth: 0.5
-                    )
-            )
-            
-            // Copy button as overlay at bottom left
-            Button(action: copyMessageToClipboard) {
-                Image(systemName: "doc.on.doc")
-                    .font(.system(size: 12))
-                    .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.9) : Color.black.opacity(0.8))
-                    .padding(6)
-                    .background(
-                        Circle()
-                            .fill(colorScheme == .dark ?
-                                  Color.gray.opacity(0.3) :
-                                    Color.white.opacity(0.9))
-                            .shadow(color: Color.black.opacity(0.15), radius: 1, x: 0, y: 1)
-                    )
-            }
-            .buttonStyle(PlainButtonStyle())
-            .offset(x: 8, y: 8)
-            .opacity(isHovering ? 1.0 : 0.0)
-            .animation(.easeInOut(duration: 0.2), value: isHovering)
         }
+        .padding(.horizontal, DS.Spacing.xl)
+        .padding(.vertical, DS.Spacing.md)
+        .overlay(alignment: .topTrailing) {
+            if isHovering {
+                Button(action: copyMessageToClipboard) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.secondaryText)
+                        .padding(6)
+                        .background(
+                            Circle()
+                                .fill(Color.surface1)
+                                .shadow(color: Color.black.opacity(0.1), radius: 1, x: 0, y: 1)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.top, DS.Spacing.md)
+                .padding(.trailing, DS.Spacing.xl)
+                .transition(.opacity.animation(.hover))
+            }
+        }
+        .overlay(alignment: .leading) {
+            // Accent left border
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.accent, Color.aiGlow],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 2.5)
+                .padding(.vertical, DS.Spacing.md)
+        }
+        .onHover { hovering in
+            withAnimation(.hover) {
+                isHovering = hovering
+            }
+        }
+    }
+
+    // MARK: - User Message (Right-aligned compact bubble)
+    private var userMessageRow: some View {
+        HStack {
+            Spacer(minLength: 80)
+            userMessageBubble
+        }
+        .padding(.horizontal, DS.Spacing.xl)
+        .padding(.vertical, DS.Spacing.xs)
+        .onHover { hovering in
+            withAnimation(.hover) {
+                isHovering = hovering
+            }
+        }
+    }
+    
+    // MARK: - Assistant Message Bubble (kept for backward compat, unused in new layout)
+    private var assistantMessageBubble: some View {
+        assistantMessageContent
     }
     
     // MARK: - Assistant Content Components
@@ -749,28 +777,11 @@ struct MessageView: View {
     
     // MARK: - User Message Bubble
     private var userMessageBubble: some View {
-        // Cache complex views to avoid unnecessary recalculations
-        let messageBackground = RoundedRectangle(cornerRadius: 16)
-            .fill(colorScheme == .dark ?
-                  Color.white.opacity(0.08) :
-                  Color.black.opacity(0.04))
-        
-        let messageBorder = RoundedRectangle(cornerRadius: 16)
-            .stroke(
-                colorScheme == .dark ?
-                Color.white.opacity(0.12) :
-                Color.black.opacity(0.08),
-                lineWidth: 0.5
-            )
-        
-        return ZStack(alignment: .bottomTrailing) {
-            // Main message content with optimized rendering
+        ZStack(alignment: .bottomTrailing) {
             VStack(alignment: .trailing, spacing: 6) {
-                // Only load attachments if they exist
                 if (message.imageBase64Strings?.isEmpty == false) ||
                    (message.documentBase64Strings?.isEmpty == false) ||
                    (message.pastedTexts?.isEmpty == false) {
-                    
                     AttachmentsView(
                         imageBase64Strings: message.imageBase64Strings,
                         imageSize: imageSize,
@@ -785,20 +796,24 @@ struct MessageView: View {
                         alignment: .trailing
                     )
                 }
-                
-                // Only create text if non-empty
+
                 if !message.text.isEmpty {
                     textContent
                 }
             }
             .padding(14)
-            .background(messageBackground)
-            .overlay(messageBorder)
-            
-            // Copy button with optimized rendering
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.lg)
+                    .fill(Color.surface2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.lg)
+                    .stroke(Color.border.opacity(0.4), lineWidth: 0.5)
+            )
+
             if isHovering {
                 copyButton
-                    .transition(.opacity)
+                    .transition(.opacity.animation(.hover))
             }
         }
         .sheet(isPresented: $viewModel.isShowingImageModal) {
@@ -879,18 +894,6 @@ struct MessageView: View {
     }
     
     // MARK: - Shared Components
-    
-    private var messageHeader: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(message.user)
-                .font(.system(size: fontSize + adjustedFontSize, weight: .semibold))
-                .foregroundColor(.primary) // Original color
-            
-            Text(format(date: message.sentTime))
-                .font(.system(size: fontSize + adjustedFontSize - 2))
-                .foregroundColor(.secondary) // Original color
-        }
-    }
     
     private func copyMessageToClipboard() {
         let pasteboard = NSPasteboard.general
@@ -1217,27 +1220,29 @@ struct HTMLStringView: NSViewRepresentable {
             <style>
                 :root {
                     --background-color: #ffffff;
-                    --text-color: #24292e;
-                    --secondary-text-color: #6a737d;
-                    --code-background-color: #ffffff;
-                    --code-text-color: #24292e;
-                    --border-color: #e1e4e8;
-                    --header-background-color: #f6f8fa;
-                    --inline-code-background-color: #f0f0f0;
-                    --inline-code-text-color: #24292e;
+                    --text-color: #0f0f12;
+                    --secondary-text-color: #6b6e7b;
+                    --code-background-color: #f8f9fa;
+                    --code-text-color: #0f0f12;
+                    --border-color: #e4e4e8;
+                    --header-background-color: #f0f1f3;
+                    --inline-code-background-color: #eef2ff;
+                    --inline-code-text-color: #4f46e5;
+                    --accent-color: #4f46e5;
                 }
-        
+
                 @media (prefers-color-scheme: dark) {
                     :root {
-                        --background-color: #0d1117;
-                        --text-color: #c9d1d9;
-                        --secondary-text-color: #8b949e;
-                        --code-background-color: #0d1117;
-                        --code-text-color: #c9d1d9;
-                        --border-color: #30363d;
-                        --header-background-color: #21262d;
-                        --inline-code-background-color: #2d333b;
-                        --inline-code-text-color: #adbac7;
+                        --background-color: #141418;
+                        --text-color: #fafbfc;
+                        --secondary-text-color: #9294a0;
+                        --code-background-color: #1e1f24;
+                        --code-text-color: #fafbfc;
+                        --border-color: #38404a;
+                        --header-background-color: #26282d;
+                        --inline-code-background-color: rgba(79, 70, 229, 0.12);
+                        --inline-code-text-color: #818cf8;
+                        --accent-color: #818cf8;
                     }
                 }
         
@@ -1259,21 +1264,13 @@ struct HTMLStringView: NSViewRepresentable {
                     margin: 0;
                     padding: 0;
                 }
-                /* Code block styling - seamless integration */
                 .code-block-container {
                     position: relative;
-                    background-color: #f6f8fa;
-                    border-radius: 12px;
+                    background-color: var(--code-background-color);
+                    border-radius: 10px;
                     overflow: hidden;
                     margin: 12px 0;
                     border: 0.5px solid var(--border-color);
-                }
-                
-                @media (prefers-color-scheme: dark) {
-                    .code-block-container {
-                        background-color: #0d1117;
-                        border: 0.5px solid rgba(255, 255, 255, 0.1);
-                    }
                 }
                 
                 .code-header {

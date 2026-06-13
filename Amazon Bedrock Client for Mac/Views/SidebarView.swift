@@ -199,16 +199,22 @@ class ChatSearchIndex: ObservableObject {
 
 struct SidebarView: View {
     // MARK: - Properties
-    
+
     @Binding var selection: SidebarSelection?
     @Binding var menuSelection: SidebarSelection?
+    @Binding var organizedChatModels: [String: [ChatModel]]
+    @Binding var comparisons: [ComparisonEntry]
+    var comparisonViewModels: [String: ComparisonViewModel]
+    var onNewChat: () -> Void
+    var onNewComparison: () -> Void
+    var onDeleteComparison: ((String) -> Void)?
     @ObservedObject var chatManager: ChatManager = ChatManager.shared
     @ObservedObject var appCoordinator = AppCoordinator.shared
-    
+
     private let logger = Logger(label: "SidebarView")
-    
+
     @State private var showingClearChatAlert = false
-    @State private var organizedChatModels: [String: [ChatModel]] = [:]
+    @State private var organizedChatsByDate: [String: [ChatModel]] = [:]
     @State private var selectionId = UUID()
     @State private var hoverStates: [String: Bool] = [:]
     @State private var searchText: String = ""
@@ -216,20 +222,20 @@ struct SidebarView: View {
     @State private var searchResults: [String] = []
     @State private var isSearching: Bool = false
     @State private var searchDebounceTimer: Timer?
-    @State private var hasInitiatedSearch: Bool = false // Track if user has ever searched
+    @State private var hasInitiatedSearch: Bool = false
     @State private var renamingChatId: String? = nil
     @State private var renameText: String = ""
+    @State private var isNewChatHovered = false
     @FocusState private var renamingTextfieldFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
-    
+
     // Performance optimization properties
     @State private var lastSortTime: Date = Date(timeIntervalSince1970: 0)
     @State private var sortingInProgress: Bool = false
-    private let sortingThrottleInterval: TimeInterval = 0.5 // Minimum interval between sorting operations
-    
-    // Timer to periodically update chat dates - reduced frequency
+    private let sortingThrottleInterval: TimeInterval = 0.5
+
     let timer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
-    
+
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM dd, yyyy"
@@ -242,8 +248,8 @@ struct SidebarView: View {
     private var sortedDateKeys: [String] {
         // Create a mapping of display keys to actual dates for proper sorting
         var keyToDateMap: [String: Date] = [:]
-        
-        for key in organizedChatModels.keys {
+
+        for key in organizedChatsByDate.keys {
             // Try to parse the key back to a date
             if let date = dateFormatter.date(from: key) {
                 keyToDateMap[key] = date
@@ -271,21 +277,21 @@ struct SidebarView: View {
     // Filtered chat models based on search results
     private var filteredChatModels: [String: [ChatModel]] {
         if searchText.isEmpty {
-            return organizedChatModels
+            return organizedChatsByDate
         }
-        
+
         var filtered: [String: [ChatModel]] = [:]
-        
-        for (dateKey, chats) in organizedChatModels {
+
+        for (dateKey, chats) in organizedChatsByDate {
             let filteredChats = chats.filter { chat in
                 searchResults.contains(chat.chatId)
             }
-            
+
             if !filteredChats.isEmpty {
                 filtered[dateKey] = filteredChats
             }
         }
-        
+
         return filtered
     }
     
@@ -294,25 +300,21 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             searchBarView
-                .padding(.horizontal, 16)
+                .padding(.horizontal, DS.Spacing.lg)
                 .padding(.top, 2)
-                .padding(.bottom, 4)
-            
+                .padding(.bottom, DS.Spacing.xs)
+
             chatListView
                 .onReceive(timer) { _ in
-                    // Only sort if enough time has passed since last update
                     if Date().timeIntervalSince(lastSortTime) > 10 {
                         throttledOrganizeChatsByDate()
                     }
                 }
                 .onChange(of: appCoordinator.shouldCreateNewChat) { _, newValue in
                     if newValue {
-                        // Prevent duplicate chat creation
                         appCoordinator.shouldCreateNewChat = false
-                        
-                        // Small delay to ensure state is clean
                         Task { @MainActor in
-                            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                            try? await Task.sleep(nanoseconds: 100_000_000)
                             self.createNewChat()
                         }
                     }
@@ -326,22 +328,22 @@ struct SidebarView: View {
                 .id(selectionId)
                 .listStyle(SidebarListStyle())
                 .frame(minWidth: 100, idealWidth: 250, maxWidth: .infinity, maxHeight: .infinity)
+
+            // MARK: - New Chat Footer
+            newChatFooterView
         }
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
+        .background(Color.surface0.opacity(0.8))
         .onAppear {
-            // Initial organization only - NO search indexing on startup
             organizeChatsInitial()
         }
         .onChange(of: chatManager.chats) { oldChats, newChats in
-            // Immediately reorganize when chat count changes (add/remove)
             if oldChats.count != newChats.count {
-                // Skip throttle for immediate UI update
                 let calendar = Calendar.current
                 let sortedChats = newChats.sorted { $0.lastMessageDate > $1.lastMessageDate }
                 let groupedChats = Dictionary(grouping: sortedChats) { chat -> DateComponents in
                     calendar.dateComponents([.year, .month, .day], from: chat.lastMessageDate)
                 }
-                
+
                 let sortedDateComponents = groupedChats.keys.sorted {
                     if $0.year != $1.year {
                         return $0.year! > $1.year!
@@ -351,7 +353,7 @@ struct SidebarView: View {
                         return $0.day! > $1.day!
                     }
                 }
-                
+
                 var newOrganizedModels: [String: [ChatModel]] = [:]
                 for components in sortedDateComponents {
                     if let date = calendar.date(from: components) {
@@ -361,16 +363,13 @@ struct SidebarView: View {
                         }
                     }
                 }
-                
-                self.organizedChatModels = newOrganizedModels
-                // NO indexing here - only when user searches
+
+                self.organizedChatsByDate = newOrganizedModels
             }
         }
         .onChange(of: searchText) { _, newValue in
-            // Mark that user has initiated search
             if !newValue.isEmpty && !hasInitiatedSearch {
                 hasInitiatedSearch = true
-                // Trigger initial indexing in background when user first types
                 Task(priority: .background) {
                     await MainActor.run {
                         updateSearchIndexIfNeeded()
@@ -379,7 +378,6 @@ struct SidebarView: View {
             }
             performSearch()
         }
-        // Remove New Chat button from toolbar, keeping only Toggle Sidebar
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button(action: Amazon_Bedrock_Client_for_MacApp.toggleSidebar) {
@@ -388,6 +386,64 @@ struct SidebarView: View {
                 }
             }
         }
+    }
+
+    // MARK: - New Chat Footer
+    private var newChatFooterView: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            Button(action: onNewChat) {
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(newChatLabel)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(isNewChatHovered ? Color.accent.opacity(0.12) : Color.surface2)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(Color.border.opacity(0.4), lineWidth: 0.5)
+                )
+                .foregroundStyle(Color.accent)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onHover { hovering in
+                withAnimation(.hover) {
+                    isNewChatHovered = hovering
+                }
+            }
+
+            Button(action: onNewComparison) {
+                Image(systemName: "rectangle.split.3x1")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.surface2)
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(Color.border.opacity(0.4), lineWidth: 0.5)
+                    )
+                    .foregroundStyle(Color.accent)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .help("New model comparison")
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.sm)
+    }
+
+    private var newChatLabel: String {
+        if case .chat(let model) = menuSelection {
+            return "New \(model.name) Chat"
+        }
+        return "New Chat"
     }
     
     // MARK: - Search Bar View
@@ -431,6 +487,19 @@ struct SidebarView: View {
     /// Enhanced chat list view
     private var chatListView: some View {
         List {
+            if !comparisons.isEmpty {
+                Section(header:
+                    Text("Comparisons")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 6)
+                ) {
+                    ForEach(comparisons) { entry in
+                        comparisonRowView(for: entry)
+                    }
+                }
+            }
+
             ForEach(sortedDateKeys, id: \.self) { dateKey in
                 if let chats = filteredChatModels[dateKey], !chats.isEmpty {
                     Section(header:
@@ -481,93 +550,95 @@ struct SidebarView: View {
     }
     
     // MARK: - Chat Row View
-    
-    /// Creates an enhanced view for an individual chat row
+
     func chatRowView(for chat: ChatModel) -> some View {
         let isHovered = hoverStates[chat.chatId, default: false]
         let isSelected = selection == .chat(chat)
         let isRenaming = renamingChatId == chat.chatId
-        
-        return HStack(spacing: 12) {
-            // Chat title and model name
-            VStack(alignment: .leading, spacing: 3) {
-                if isRenaming {
-                    TextField("Chat title", text: $renameText)
-                        .font(.system(size: 13, weight: .medium))
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .focused($renamingTextfieldFocused)
-                        .onSubmit {
-                            finishRenaming(chat)
-                        }
-                        .onExitCommand {
-                            cancelRenaming()
-                        }
-                        .onChange(of: renamingTextfieldFocused) { _, newValue in
-                            if (!newValue) {
-                                finishRenaming(chat)
+        let isLoading = chatManager.getIsLoading(for: chat.chatId)
+
+        return HStack(spacing: 0) {
+            // Active indicator bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(isSelected ? Color.accent : Color.clear)
+                .frame(width: 3)
+                .padding(.vertical, 6)
+
+            HStack(spacing: 10) {
+                // Model avatar
+                ModelImageHelper.getImage(for: chat.id)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.border.opacity(0.3), lineWidth: 0.5)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if isRenaming {
+                        TextField("Chat title", text: $renameText)
+                            .font(.system(size: 13, weight: .medium))
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .focused($renamingTextfieldFocused)
+                            .onSubmit { finishRenaming(chat) }
+                            .onExitCommand { cancelRenaming() }
+                            .onChange(of: renamingTextfieldFocused) { _, newValue in
+                                if !newValue { finishRenaming(chat) }
                             }
-                        }
-                } else {
-                    Text(chat.title)
-                        .font(.system(size: 13, weight: .medium))
+                    } else {
+                        Text(chat.title)
+                            .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                    }
+
+                    // Message preview
+                    Text(chatPreview(for: chat))
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
-                
-                Text(chat.name)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+
+                Spacer(minLength: 4)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    // Relative time
+                    Text(relativeTime(for: chat.lastMessageDate))
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+
+                    // Loading indicator
+                    if isLoading {
+                        PulsingDotView()
+                    }
+                }
             }
-            
-            Spacer()
-            
-            // Loading indicator as animated dots
-            if chatManager.getIsLoading(for: chat.chatId) {
-                LoadingDotsView()
-                    .frame(width: 30, height: 20)
-            }
+            .padding(.leading, 8)
+            .padding(.trailing, 10)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: DS.Radius.sm)
                 .fill(isSelected ?
-                      Color.accentColor.opacity(0.18) :
-                        (isHovered ? Color.gray.opacity(0.08) : Color.clear))
+                      Color.accentColor.opacity(0.15) :
+                        (isHovered ? Color(NSColor.quaternaryLabelColor) : Color.clear))
         )
-        .modifier(ChatRowBorderModifier(isSelected: isSelected))
         .contentShape(Rectangle())
         .onHover { hover in
             if !isRenaming {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.hover) {
                     hoverStates[chat.chatId] = hover
-                }
-                if hover {
-                    NSCursor.pointingHand.set()
-                } else {
-                    NSCursor.arrow.set()
                 }
             }
         }
         .contextMenu {
-            // Edit
-            Button("Rename") {
-                startRenaming(chat)
-            }
-            
-            // Copy & Export
-            Button("Copy Entire Chat") {
-                copyEntireChat(chat)
-            }
-            
-            Button("Export as Text File") {
-                exportChatAsTextFile(chat)
-            }
-            
-            // Delete
-            Button("Delete", role: .destructive) {
-                deleteChat(chat)
-            }
+            Button("Rename") { startRenaming(chat) }
+            Button("Copy Entire Chat") { copyEntireChat(chat) }
+            Button("Export as Text File") { exportChatAsTextFile(chat) }
+            Divider()
+            Button("Delete", role: .destructive) { deleteChat(chat) }
         }
         .onTapGesture {
             if !isRenaming {
@@ -575,35 +646,96 @@ struct SidebarView: View {
             }
         }
     }
-    
-    // New loading dots animation view
-    struct LoadingDotsView: View {
-        @State private var dotCount = 1
-        
-        var body: some View {
-            HStack {
-                Text(String(repeating: ".", count: dotCount))
-                    .font(.system(size: 16, weight: .medium))
+
+    func comparisonRowView(for entry: ComparisonEntry) -> some View {
+        let isSelected = selection == .comparison(entry.id)
+        let vm = comparisonViewModels[entry.id]
+        let modelNames = vm?.panes.map { $0.modelName }.joined(separator: " vs ") ?? "No models"
+        let preview: String = {
+            guard let panes = vm?.panes, let first = panes.first,
+                  let lastMsg = first.viewModel.messages.last else {
+                return "No messages yet"
+            }
+            let prefix = lastMsg.user == "User" ? "You: " : ""
+            return prefix + lastMsg.text.prefix(50).replacingOccurrences(of: "\n", with: " ")
+        }()
+
+        return HStack(spacing: 10) {
+            Image(systemName: "rectangle.split.3x1")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.accent)
+                .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(modelNames)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+
+                Text(preview)
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                
-                Spacer()
+                    .lineLimit(1)
             }
-            .onAppear {
-                // Start the animation
-                let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
-                
-                // Clean up the timer when the view disappears
-                let cancellable = timer.sink { _ in
-                    withAnimation {
-                        dotCount = (dotCount % 3) + 1
-                    }
+
+            Spacer(minLength: 4)
+
+            Text(relativeTime(for: entry.createdAt))
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selection = .comparison(entry.id)
+        }
+        .contextMenu {
+            Button("Delete", role: .destructive) {
+                comparisons.removeAll { $0.id == entry.id }
+                if selection == .comparison(entry.id) {
+                    selection = nil
                 }
-                
-                // Store the cancellable for cleanup
-                DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
-                    cancellable.cancel()
-                }
+                onDeleteComparison?(entry.id)
             }
+        }
+    }
+
+    private func chatPreview(for chat: ChatModel) -> String {
+        let messages = chatManager.getMessages(for: chat.chatId)
+        if let last = messages.last {
+            let prefix = last.user == "User" ? "You: " : ""
+            return prefix + last.text.prefix(60).replacingOccurrences(of: "\n", with: " ")
+        }
+        return chat.name
+    }
+
+    private func relativeTime(for date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 60 { return "now" }
+        if interval < 3600 { return "\(Int(interval / 60))m" }
+        if interval < 86400 { return "\(Int(interval / 3600))h" }
+        if interval < 604800 { return "\(Int(interval / 86400))d" }
+        return "\(Int(interval / 604800))w"
+    }
+    
+    struct PulsingDotView: View {
+        @State private var isAnimating = false
+
+        var body: some View {
+            Circle()
+                .fill(Color.accent)
+                .frame(width: 6, height: 6)
+                .opacity(isAnimating ? 1.0 : 0.3)
+                .animation(
+                    .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                    value: isAnimating
+                )
+                .onAppear { isAnimating = true }
         }
     }
     
@@ -723,16 +855,15 @@ struct SidebarView: View {
             let key = formatDate(date)
             
             // If date key already exists, add to that group, otherwise create new group
-            var mutableOrganizedModels = organizedChatModels
+            var mutableOrganizedModels = organizedChatsByDate
             if var chatsForDate = mutableOrganizedModels[key] {
-                // Insert maintaining date sort order
-                chatsForDate.insert(newChat, at: 0) // Add at front since it's the newest
+                chatsForDate.insert(newChat, at: 0)
                 mutableOrganizedModels[key] = chatsForDate
             } else {
                 mutableOrganizedModels[key] = [newChat]
             }
-            
-            organizedChatModels = mutableOrganizedModels
+
+            organizedChatsByDate = mutableOrganizedModels
         }
     }
     
@@ -744,7 +875,7 @@ struct SidebarView: View {
         let now = Date()
         if !sortingInProgress && now.timeIntervalSince(lastSortTime) > sortingThrottleInterval {
             sortingInProgress = true
-            
+
             // Move sorting work to background thread
             Task(priority: .userInitiated) {
                 let calendar = Calendar.current
@@ -775,7 +906,7 @@ struct SidebarView: View {
                 
                 // UI updates on main thread
                 await MainActor.run {
-                    self.organizedChatModels = newOrganizedModels
+                    self.organizedChatsByDate = newOrganizedModels
                     self.lastSortTime = Date()
                     self.sortingInProgress = false
                 }

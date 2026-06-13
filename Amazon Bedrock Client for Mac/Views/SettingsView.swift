@@ -15,20 +15,22 @@ struct SettingsView: View {
     private var logger = Logger(label: "SettingsView")
     
     enum SettingsTab: String, CaseIterable, Identifiable {
-        case general, developer
-        
+        case general, models, developer
+
         var id: String { self.rawValue }
-        
+
         var title: String {
             switch self {
             case .general: return "General"
+            case .models: return "Models"
             case .developer: return "Developer"
             }
         }
-        
+
         var imageName: String {
             switch self {
             case .general: return "gearshape"
+            case .models: return "cpu"
             case .developer: return "terminal"
             }
         }
@@ -74,6 +76,8 @@ struct SettingsView: View {
                 switch selectedTab {
                 case .general:
                     GeneralSettingsView(organizedChatModels: organizedChatModels)
+                case .models:
+                    ModelRegistrySettingsView()
                 case .developer:
                     DeveloperSettingsView()
                 }

@@ -63,45 +63,48 @@ struct MessageBarView: View {
     // MARK: - Body
     var body: some View {
         VStack(spacing: 0) {
-            // Attachment list (when images or documents are present)
-            if (!sharedMediaDataSource.images.isEmpty || !sharedMediaDataSource.documents.isEmpty) {
-                AttachmentListView(
-                    attachments: $attachments,
-                    documentAttachments: $documentAttachments,
-                    sharedMediaDataSource: sharedMediaDataSource,
-                    selectedImageIndex: $selectedImageIndex,
-                    showImagePreview: $showImagePreview,
-                    onRemoveAttachment: removeAttachment,
-                    onRemoveDocumentAttachment: removeDocumentAttachment,
-                    onRemoveAllAttachments: removeAllAttachments
-                )
-                .transition(.opacity)
-            }
-            
-            // Message input bar with buttons
-            HStack(alignment: .center, spacing: 2) {
-                fileUploadButton
-                advancedOptionsButton
-                inputArea
-                
-                HStack(spacing: 4) {
-                    micButton
-                    sendButton
+            // Message input bar (floating pill)
+            VStack(spacing: 0) {
+                // Inline attachments inside the bar
+                if !sharedMediaDataSource.images.isEmpty || !sharedMediaDataSource.documents.isEmpty {
+                    AttachmentListView(
+                        attachments: $attachments,
+                        documentAttachments: $documentAttachments,
+                        sharedMediaDataSource: sharedMediaDataSource,
+                        selectedImageIndex: $selectedImageIndex,
+                        showImagePreview: $showImagePreview,
+                        onRemoveAttachment: removeAttachment,
+                        onRemoveDocumentAttachment: removeDocumentAttachment,
+                        onRemoveAllAttachments: removeAllAttachments
+                    )
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.top, DS.Spacing.sm)
+                    .transition(.opacity)
                 }
+
+                HStack(alignment: .center, spacing: 2) {
+                    fileUploadButton
+                    advancedOptionsButton
+                    inputArea
+
+                    HStack(spacing: 4) {
+                        micButton
+                        sendButton
+                    }
+                }
+                .padding(.horizontal, DS.Spacing.md)
+                .padding(.vertical, DS.Spacing.sm)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
             .background(messageBarBackground)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            
-            // Loading indicator
+            .padding(.horizontal, DS.Spacing.lg)
+            .padding(.vertical, DS.Spacing.md)
+
             if isPasting {
                 PasteLoadingView()
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: isPasting)
-        .animation(.easeInOut(duration: 0.2), value: sharedMediaDataSource.images.count)
+        .animation(.micro, value: isPasting)
+        .animation(.micro, value: sharedMediaDataSource.images.count)
         .foregroundColor(Color.text)
         .onExitCommand {
             if isLoading { cancelSending() }
@@ -217,10 +220,13 @@ struct MessageBarView: View {
     }
     
     private var sendButton: some View {
-        Button(action: {
+        let hasContent = !userInput.isEmpty || !sharedMediaDataSource.images.isEmpty || !sharedMediaDataSource.documents.isEmpty
+        let isEnabled = hasContent || isLoading
+
+        return Button(action: {
             if isLoading {
                 cancelSending()
-            } else if !userInput.isEmpty || !sharedMediaDataSource.images.isEmpty || !sharedMediaDataSource.documents.isEmpty {
+            } else if hasContent {
                 handleSendMessage()
             }
         }) {
@@ -230,13 +236,12 @@ struct MessageBarView: View {
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(Color.black)
-                        .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
+                        .fill(isEnabled ? Color.accent : Color.accent.opacity(0.4))
                 )
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(userInput.isEmpty && sharedMediaDataSource.images.isEmpty && sharedMediaDataSource.documents.isEmpty && !isLoading)
-        .opacity((userInput.isEmpty && sharedMediaDataSource.images.isEmpty && sharedMediaDataSource.documents.isEmpty && !isLoading) ? 0.6 : 1)
+        .disabled(!isEnabled)
+        .animation(.micro, value: isEnabled)
         .onChange(of: chatManager.getIsLoading(for: chatID)) { _, newValue in
             isLoading = newValue
         }

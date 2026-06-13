@@ -39,6 +39,10 @@ struct ChatView: View {
     @State private var searchResult: SearchResult = SearchResult(matches: [], totalMatches: 0, searchTime: 0)
     @State private var searchDebounceTimer: Timer?
     
+    // Revert state
+    @State private var revertTargetIndex: Int?
+    @State private var showRevertAlert: Bool = false
+
     // Usage toast state
     @State private var showUsageToast: Bool = false
     @State private var currentUsage: String = ""
@@ -96,6 +100,20 @@ struct ChatView: View {
             
             // Handle quick access message if this is the target chat
             handleQuickAccessMessage()
+        }
+        .alert("Revert conversation?", isPresented: $showRevertAlert) {
+            Button("Cancel", role: .cancel) { revertTargetIndex = nil }
+            Button("Revert", role: .destructive) {
+                if let idx = revertTargetIndex {
+                    viewModel.revertToMessage(at: idx)
+                    revertTargetIndex = nil
+                }
+            }
+        } message: {
+            if let idx = revertTargetIndex {
+                let count = viewModel.messages.count - idx - 1
+                Text("This will remove \(count) message\(count == 1 ? "" : "s"). This cannot be undone.")
+            }
         }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -223,9 +241,18 @@ struct ChatView: View {
         let messageList = VStack(spacing: 2) {
             ForEach(Array(viewModel.messages.enumerated()), id: \.offset) { idx, message in
                 MessageView(
-                    message: message, 
+                    message: message,
                     searchResult: getSearchResultForMessage(idx),
-                    adjustedFontSize: CGFloat(adjustedFontSize)
+                    adjustedFontSize: CGFloat(adjustedFontSize),
+                    modelId: viewModel.chatModel.id,
+                    onRevert: idx > 0 && !viewModel.isSending ? {
+                        if message.user == "User" {
+                            revertTargetIndex = idx - 1
+                        } else {
+                            revertTargetIndex = idx >= 2 ? idx - 2 : 0
+                        }
+                        showRevertAlert = true
+                    } : nil
                 )
                     .id(idx)
                     .frame(maxWidth: .infinity)
@@ -276,35 +303,32 @@ struct ChatView: View {
                     HStack {
                         Spacer()
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(.viewTransition) {
                                 proxy.scrollTo("Bottom", anchor: .bottom)
                                 isAtBottom = true
                             }
                         } label: {
                             Image(systemName: "arrow.down")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.primary)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.accent)
                                 .frame(width: 32, height: 32)
                                 .background(
                                     Circle()
-                                        .fill(colorScheme == .dark ?
-                                              Color(NSColor.windowBackgroundColor).opacity(0.9) :
-                                                Color.white.opacity(0.98))
-                                        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+                                        .fill(Color.surface2)
+                                        .shadow(color: DS.Shadow.md.color, radius: DS.Shadow.md.radius, x: 0, y: DS.Shadow.md.y)
                                 )
                                 .overlay(
                                     Circle()
-                                        .strokeBorder(Color.gray.opacity(0.2), lineWidth: 0.5)
+                                        .strokeBorder(Color.border.opacity(0.4), lineWidth: 0.5)
                                 )
                         }
                         .buttonStyle(PlainButtonStyle())
                         .contentShape(Circle())
-                        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                         Spacer()
                     }
-                    .padding(.bottom, 16)
+                    .padding(.bottom, DS.Spacing.lg)
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .transition(.scale(scale: 0.8).combined(with: .opacity).animation(.micro))
             }
         }
     }
