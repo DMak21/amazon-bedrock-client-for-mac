@@ -199,7 +199,7 @@ struct ChatView: View {
     }
     
     // MARK: - Placeholder
-    
+
     private var placeholderView: some View {
         VStack {
             if viewModel.messages.isEmpty {

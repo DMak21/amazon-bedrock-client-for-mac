@@ -60,6 +60,7 @@
 		79EC4F1F2EE1659500BF73D9 /* ImageStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EC4F1E2EE1659500BF73D9 /* ImageStorageManager.swift */; };
 		79EC4F212EE165E500BF73D9 /* ImageGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EC4F202EE165E500BF73D9 /* ImageGenerationService.swift */; };
 		79EC4F232EE17E6500BF73D9 /* PromptTemplateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EC4F222EE17E6500BF73D9 /* PromptTemplateManager.swift */; };
+		79EC4F3B2EE2100000BF73D9 /* UserPromptTemplateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EC4F3A2EE2100000BF73D9 /* UserPromptTemplateManager.swift */; };
 		79EC4F252EE17E7400BF73D9 /* NovaCanvasConfigDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EC4F242EE17E7400BF73D9 /* NovaCanvasConfigDropdown.swift */; };
 		79EC4F282EE1996000BF73D9 /* StabilityAIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EC4F262EE1996000BF73D9 /* StabilityAIModels.swift */; };
 		79EC4F292EE1996000BF73D9 /* TitanImageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EC4F272EE1996000BF73D9 /* TitanImageModels.swift */; };
@@ -154,6 +155,7 @@
 		79EC4F1E2EE1659500BF73D9 /* ImageStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStorageManager.swift; sourceTree = "<group>"; };
 		79EC4F202EE165E500BF73D9 /* ImageGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageGenerationService.swift; sourceTree = "<group>"; };
 		79EC4F222EE17E6500BF73D9 /* PromptTemplateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptTemplateManager.swift; sourceTree = "<group>"; };
+		79EC4F3A2EE2100000BF73D9 /* UserPromptTemplateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPromptTemplateManager.swift; sourceTree = "<group>"; };
 		79EC4F242EE17E7400BF73D9 /* NovaCanvasConfigDropdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NovaCanvasConfigDropdown.swift; sourceTree = "<group>"; };
 		79EC4F262EE1996000BF73D9 /* StabilityAIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StabilityAIModels.swift; sourceTree = "<group>"; };
 		79EC4F272EE1996000BF73D9 /* TitanImageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitanImageModels.swift; sourceTree = "<group>"; };
@@ -268,6 +270,7 @@
 			children = (
 				79EC4F362EE2034100BF73D9 /* VideoGenerationService.swift */,
 				79EC4F222EE17E6500BF73D9 /* PromptTemplateManager.swift */,
+				79EC4F3A2EE2100000BF73D9 /* UserPromptTemplateManager.swift */,
 				79EC4F202EE165E500BF73D9 /* ImageGenerationService.swift */,
 				79EC4F1E2EE1659500BF73D9 /* ImageStorageManager.swift */,
 				79C4F01F2C3048A300C488C2 /* AppCoordinator.swift */,
@@ -563,6 +566,7 @@
 				79C7F5ED2AD282EE008FBB35 /* EnvironmentExtensions.swift in Sources */,
 				797A12B82C2DB33100494DD9 /* SettingsWindowManager.swift in Sources */,
 				79EC4F232EE17E6500BF73D9 /* PromptTemplateManager.swift in Sources */,
+				79EC4F3B2EE2100000BF73D9 /* UserPromptTemplateManager.swift in Sources */,
 				79F53C8B2E7B0DBA00F129F4 /* HotkeyRecorderView.swift in Sources */,
 				79610DE52AD22A2F00993D09 /* MessageBarView.swift in Sources */,
 				79BFF5102AD342710057BF3A /* ChatManager.swift in Sources */,

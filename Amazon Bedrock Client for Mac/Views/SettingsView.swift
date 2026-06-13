@@ -279,6 +279,8 @@ struct GeneralSettingsView: View {
                 }
                 
                 SystemPromptSection()
+
+                UserPromptSection()
             }
         }
         .formStyle(.grouped)
@@ -1507,23 +1509,23 @@ struct PromptNameSheet: View {
     @Binding var name: String
     let buttonTitle: String
     let onSave: () -> Void
-    
+
     var body: some View {
         VStack(spacing: 16) {
             Text(title)
                 .font(.headline)
-            
+
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
-            
+
             HStack {
                 Button("Cancel") {
                     isPresented = false
                 }
                 .keyboardShortcut(.cancelAction)
-                
+
                 Spacer()
-                
+
                 Button(buttonTitle) {
                     onSave()
                     isPresented = false
@@ -1535,5 +1537,154 @@ struct PromptNameSheet: View {
         }
         .padding()
         .frame(width: 280)
+    }
+}
+
+// MARK: - User Prompt Templates Section (for GeneralSettingsView)
+
+struct UserPromptSection: View {
+    @StateObject private var manager = UserPromptTemplateManager.shared
+    @State private var showingAddSheet = false
+    @State private var showingEditSheet = false
+    @State private var editingTemplate: UserPromptTemplate?
+    @State private var editName = ""
+    @State private var editContent = ""
+
+    var body: some View {
+        Section("Prompt Templates") {
+            if manager.templates.isEmpty {
+                HStack {
+                    Text("No prompt templates")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 13))
+                    Spacer()
+                    Button("Import Examples") {
+                        manager.importExampleTemplates()
+                    }
+                    .font(.system(size: 12))
+                }
+            } else {
+                ForEach(manager.templates) { template in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(template.name)
+                                .font(.system(size: 13, weight: .medium))
+                            Text(template.content)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button("Edit") {
+                            editingTemplate = template
+                            editName = template.name
+                            editContent = template.content
+                            showingEditSheet = true
+                        }
+                        Divider()
+                        Button("Delete", role: .destructive) {
+                            manager.deleteTemplate(template)
+                        }
+                    }
+                }
+            }
+
+            HStack {
+                Button {
+                    editingTemplate = nil
+                    editName = ""
+                    editContent = ""
+                    showingAddSheet = true
+                } label: {
+                    Label("Add Template", systemImage: "plus")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderless)
+
+                if !manager.templates.isEmpty {
+                    Spacer()
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            UserPromptEditSheet(
+                isPresented: $showingAddSheet,
+                title: "New Prompt Template",
+                name: $editName,
+                content: $editContent,
+                buttonTitle: "Create"
+            ) {
+                manager.addTemplate(name: editName, content: editContent)
+            }
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            UserPromptEditSheet(
+                isPresented: $showingEditSheet,
+                title: "Edit Prompt Template",
+                name: $editName,
+                content: $editContent,
+                buttonTitle: "Save"
+            ) {
+                if var template = editingTemplate {
+                    template.name = editName
+                    template.content = editContent
+                    manager.updateTemplate(template)
+                }
+            }
+        }
+    }
+}
+
+struct UserPromptEditSheet: View {
+    @Binding var isPresented: Bool
+    let title: String
+    @Binding var name: String
+    @Binding var content: String
+    let buttonTitle: String
+    let onSave: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(title)
+                .font(.headline)
+
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Prompt")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                TextEditor(text: $content)
+                    .font(.system(size: 13))
+                    .frame(height: 100)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+            }
+
+            HStack {
+                Button("Cancel") {
+                    isPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button(buttonTitle) {
+                    onSave()
+                    isPresented = false
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(name.isEmpty || content.isEmpty)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding()
+        .frame(width: 380)
     }
 }

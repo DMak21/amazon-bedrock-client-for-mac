@@ -156,6 +156,20 @@ struct ComparisonChatView: View {
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)
         .background(Color.surface1.opacity(0.6))
+        .contextMenu {
+            Button {
+                ChatManager.shared.duplicateHiddenChatToStandalone(chatId: pane.chatId)
+            } label: {
+                Label("Export to Standalone Chat", systemImage: "arrow.up.forward.square")
+            }
+            Divider()
+            Button(role: .destructive) {
+                viewModel.removePane(at: index)
+                onStateChanged?()
+            } label: {
+                Label("Remove", systemImage: "trash")
+            }
+        }
     }
 
     private func paneContent(pane: ComparisonViewModel.ComparisonPane) -> some View {

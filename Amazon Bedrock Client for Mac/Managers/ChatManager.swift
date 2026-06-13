@@ -545,6 +545,51 @@ class ChatManager: ObservableObject {
         chatIsLoading.removeValue(forKey: chatId)
     }
 
+    func duplicateHiddenChatToStandalone(chatId: String) {
+        guard let source = hiddenChats[chatId] else { return }
+
+        let newChatId = UUID().uuidString
+        let newChat = ChatModel(
+            id: source.id,
+            chatId: newChatId,
+            name: source.name,
+            title: source.title,
+            description: source.description,
+            provider: source.provider,
+            lastMessageDate: Date()
+        )
+
+        if let history = getConversationHistory(for: chatId) {
+            let newHistory = ConversationHistory(
+                chatId: newChatId,
+                modelId: history.modelId,
+                messages: history.messages,
+                systemPrompt: history.systemPrompt
+            )
+            saveConversationHistory(newHistory, for: newChatId)
+        }
+
+        chats.append(newChat)
+        chatIsLoading[newChatId] = false
+        objectWillChange.send()
+
+        let context = coreDataStack.viewContext
+        Task {
+            await context.perform {
+                let entity = NSEntityDescription.insertNewObject(forEntityName: "ChatEntity", into: context) as! ChatEntity
+                entity.id = newChat.id
+                entity.chatId = newChat.chatId
+                entity.name = newChat.name
+                entity.title = newChat.title
+                entity.chatDescription = newChat.description
+                entity.provider = newChat.provider
+                entity.lastMessageDate = newChat.lastMessageDate
+                entity.isManuallyRenamed = newChat.isManuallyRenamed
+                try? context.save()
+            }
+        }
+    }
+
     func getChatModel(for chatId: String) -> ChatModel? {
         return chats.first { $0.chatId == chatId } ?? hiddenChats[chatId]
     }

@@ -585,6 +585,7 @@ struct AdvancedOptionsMenu: View {
     @ObservedObject var settingManager: SettingManager
     @ObservedObject var mcpManager: MCPManager = MCPManager.shared
     @ObservedObject var templateManager: PromptTemplateManager = PromptTemplateManager.shared
+    @ObservedObject var userPromptManager: UserPromptTemplateManager = UserPromptTemplateManager.shared
     var modelId: String
     
     // Check if current model supports reasoning/thinking
@@ -689,6 +690,24 @@ struct AdvancedOptionsMenu: View {
                             Text(template.name)
                             if templateManager.selectedTemplateId == template.id {
                                 Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // User Prompt Templates
+            Menu("Prompt Templates") {
+                if userPromptManager.templates.isEmpty {
+                    Text("No templates yet")
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(userPromptManager.templates) { template in
+                        Button(template.name) {
+                            if userInput.isEmpty {
+                                userInput = template.content
+                            } else {
+                                userInput += "\n\n" + template.content
                             }
                         }
                     }
