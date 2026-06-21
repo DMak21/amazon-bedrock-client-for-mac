@@ -195,6 +195,7 @@ struct MessageBarView: View {
             isPasting: $isPasting,
             allowImagePasting: settingManager.allowImagePasting,
             treatLargeTextAsFile: settingManager.treatLargeTextAsFile,
+            largeTextThresholdKB: settingManager.largeTextThresholdKB,
             onCommit: {
                 handleSendMessage()
             },

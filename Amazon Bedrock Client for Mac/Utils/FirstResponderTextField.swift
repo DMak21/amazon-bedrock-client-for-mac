@@ -424,6 +424,7 @@ struct FirstResponderTextView: NSViewRepresentable {
     @Binding var isPasting: Bool  // New binding for paste operation status
     var allowImagePasting: Bool = true  // Control whether image pasting is allowed
     var treatLargeTextAsFile: Bool = true  // Control whether large text is treated as file attachment
+    var largeTextThresholdKB: Int = 10
     var onCommit: () -> Void
     var onPaste: ((NSImage) -> Void)?
     var onPasteDocument: ((URL) -> Void)?
@@ -444,7 +445,7 @@ struct FirstResponderTextView: NSViewRepresentable {
     }
     
     static func == (lhs: FirstResponderTextView, rhs: FirstResponderTextView) -> Bool {
-        lhs.text == rhs.text && lhs.isDisabled == rhs.isDisabled && lhs.isPasting == rhs.isPasting && lhs.allowImagePasting == rhs.allowImagePasting && lhs.treatLargeTextAsFile == rhs.treatLargeTextAsFile
+        lhs.text == rhs.text && lhs.isDisabled == rhs.isDisabled && lhs.isPasting == rhs.isPasting && lhs.allowImagePasting == rhs.allowImagePasting && lhs.treatLargeTextAsFile == rhs.treatLargeTextAsFile && lhs.largeTextThresholdKB == rhs.largeTextThresholdKB
     }
     
     func makeNSView(context: Context) -> NSScrollView {
@@ -459,6 +460,7 @@ struct FirstResponderTextView: NSViewRepresentable {
             textView.delegate = context.coordinator
             textView.allowImagePasting = allowImagePasting
             textView.treatLargeTextAsFile = treatLargeTextAsFile
+            textView.largeTextThreshold = largeTextThresholdKB * 1024
             textView.onPaste = { image in context.coordinator.parent.onPaste?(image) }
             textView.onPasteDocument = { url in
                 context.coordinator.parent.onPasteDocument?(url)
@@ -522,6 +524,7 @@ struct FirstResponderTextView: NSViewRepresentable {
         textView.isEditable = !self.isDisabled
         textView.allowImagePasting = self.allowImagePasting
         textView.treatLargeTextAsFile = self.treatLargeTextAsFile
+        textView.largeTextThreshold = self.largeTextThresholdKB * 1024
     }
     
     public func updateHeight(textView: MyTextView) {

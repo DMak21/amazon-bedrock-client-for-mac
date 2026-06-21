@@ -86,6 +86,7 @@ class SettingManager: ObservableObject {
     @Published var availableModels: [ChatModel] = []
     @AppStorage("allowImagePasting") var allowImagePasting: Bool = true
     @AppStorage("treatLargeTextAsFile") var treatLargeTextAsFile: Bool = true
+    @AppStorage("largeTextThresholdKB") var largeTextThresholdKB: Int = 10
     @Published var favoriteModelIds: [String] = [] {
         didSet {
             saveFavoriteModels()

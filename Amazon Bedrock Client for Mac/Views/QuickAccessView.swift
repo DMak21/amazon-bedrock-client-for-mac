@@ -171,6 +171,7 @@ struct QuickAccessView: View {
             isPasting: $isPasting,
             allowImagePasting: settingManager.allowImagePasting,
             treatLargeTextAsFile: settingManager.treatLargeTextAsFile,
+            largeTextThresholdKB: settingManager.largeTextThresholdKB,
             onCommit: sendMessage,
             onPaste: handleImagePaste,
             onPasteDocument: { url in handleFileImport([url]) },

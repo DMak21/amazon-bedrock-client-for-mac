@@ -205,7 +205,20 @@ struct GeneralSettingsView: View {
                 Toggle("Enable Quick Access", isOn: $settingsManager.enableQuickAccess)
                 
                 Toggle("Treat Large Text as File", isOn: $settingsManager.treatLargeTextAsFile)
-                    .help("When enabled, large pasted text (10KB+) will be attached as a file instead of inline text")
+                    .help("When enabled, large pasted text will be attached as a file instead of inline text")
+
+                if settingsManager.treatLargeTextAsFile {
+                    LabeledContent("Large Text Threshold") {
+                        HStack {
+                            TextField("", value: $settingsManager.largeTextThresholdKB, format: .number)
+                                .frame(width: 60)
+                                .textFieldStyle(.roundedBorder)
+                            Text("KB")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .help("Text larger than this size will be treated as a file attachment")
+                }
                 
                 if settingsManager.enableQuickAccess {
                     LabeledContent("Hotkey") {
